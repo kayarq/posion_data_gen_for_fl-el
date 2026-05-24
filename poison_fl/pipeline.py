@@ -15,7 +15,7 @@ from poison_fl.distribution import distribute_iid, distribute_non_iid
 
 
 def run_pipeline(
-    csv_paths: list[str | Path],
+    csv_paths: list[str | Path] | None = None,
     target_col: str = "label",
     n_clients: int = 5,
     poison_fraction: float = 0.10,
@@ -27,13 +27,17 @@ def run_pipeline(
     keep_classes: list[str] | None = None,
     output_dir: str | Path | None = None,
     random_state: int = 42,
+    generate: bool = False,
+    generate_n: int = 100_000,
+    generate_classes: list[str] | None = None,
+    imbalance_ratio: float | None = None,
 ) -> dict:
     """Run the full poisoning-data generation pipeline.
 
     Parameters
     ----------
-    csv_paths : list of paths
-        Input CSV file(s).
+    csv_paths : list of paths or None
+        Input CSV file(s).  Not needed when *generate* is True.
     target_col : str
         Name of the label column.
     n_clients : int
@@ -56,6 +60,15 @@ def run_pipeline(
         If given, save per-client CSVs here.
     random_state : int
         Global random seed.
+    generate : bool, default False
+        If True, generate synthetic CICIoT-2023-like data instead of
+        reading CSV files.
+    generate_n : int, default 100_000
+        Number of samples to generate (only used when *generate* is True).
+    generate_classes : list of str or None
+        Classes to include in generated data.  Defaults to all 8.
+    imbalance_ratio : float or None
+        If set, Benign gets this fraction of generated data.
 
     Returns
     -------
@@ -66,6 +79,23 @@ def run_pipeline(
         feature_names – selected feature names
         label_encoder – fitted LabelEncoder
     """
+    if generate:
+        # Generate synthetic data, save to a temp CSV, then preprocess
+        import tempfile
+        from poison_fl.datagen import generate_data
+
+        df = generate_data(
+            n_samples=generate_n,
+            classes=generate_classes,
+            imbalance_ratio=imbalance_ratio,
+            random_state=random_state,
+        )
+        tmp = tempfile.NamedTemporaryFile(suffix=".csv", delete=False)
+        df.to_csv(tmp.name, index=False)
+        csv_paths = [tmp.name]
+    elif not csv_paths:
+        raise ValueError("Either provide csv_paths or set generate=True.")
+
     # Step 1 – preprocess
     prep = preprocess(
         csv_paths=csv_paths,

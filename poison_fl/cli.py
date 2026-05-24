@@ -12,8 +12,25 @@ def main(argv: list[str] | None = None) -> None:
         description="Generate poisoned FL client datasets (Al Dalaien et al., 2025).",
     )
     parser.add_argument(
-        "csv", nargs="+",
-        help="One or more input CSV files.",
+        "csv", nargs="*",
+        help="One or more input CSV files (not needed with --generate).",
+    )
+    parser.add_argument(
+        "-g", "--generate", action="store_true",
+        help="Generate synthetic CICIoT-2023-like data instead of reading CSVs.",
+    )
+    parser.add_argument(
+        "--generate-n", type=int, default=100_000,
+        help="Number of synthetic samples to generate (default: 100000).",
+    )
+    parser.add_argument(
+        "--generate-classes", nargs="+", default=None,
+        help="Classes for synthetic data (default: all 8). "
+             "Options: Benign DDoS DoS Recon Spoofing Mirai BruteForce Web",
+    )
+    parser.add_argument(
+        "--imbalance-ratio", type=float, default=None,
+        help="Fraction of Benign in generated data (e.g. 0.6 = 60%% benign).",
     )
     parser.add_argument(
         "-t", "--target-col", default="label",
@@ -62,10 +79,13 @@ def main(argv: list[str] | None = None) -> None:
 
     args = parser.parse_args(argv)
 
+    if not args.generate and not args.csv:
+        parser.error("Provide CSV files or use --generate / -g.")
+
     from poison_fl.pipeline import run_pipeline
 
     result = run_pipeline(
-        csv_paths=args.csv,
+        csv_paths=args.csv or None,
         target_col=args.target_col,
         n_clients=args.n_clients,
         poison_fraction=args.poison_fraction,
@@ -77,6 +97,10 @@ def main(argv: list[str] | None = None) -> None:
         keep_classes=args.keep_classes,
         output_dir=args.output_dir,
         random_state=args.seed,
+        generate=args.generate,
+        generate_n=args.generate_n,
+        generate_classes=args.generate_classes,
+        imbalance_ratio=args.imbalance_ratio,
     )
 
     n_total = sum(len(c["y"]) for c in result["clients"])

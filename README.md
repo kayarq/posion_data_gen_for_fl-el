@@ -17,17 +17,34 @@ pip install -e ".[plot]"
 
 Implements the paper's data-poisoning strategy (Section 5.1 / 5.7):
 
-1. **Preprocess** – load CSVs, handle missing values, encode labels, balance
-   minority classes with ADASYN (Eq. 1), select top-*k* features via Random
-   Forest importance (Eqs. 2–3), then 80/20 train-test split.
-2. **Distribute** – split training data equally among *N* FL clients (IID or
+1. **Generate** (optional) – produce synthetic CICIoT-2023-like IoT traffic
+   data from scratch (8 classes: Benign, DDoS, DoS, Recon, Spoofing, Mirai,
+   BruteForce, Web) with realistic per-class feature distributions. No dataset
+   download required.
+2. **Preprocess** – load CSVs (or generated data), handle missing values,
+   encode labels, balance minority classes with ADASYN (Eq. 1), select top-*k*
+   features via Random Forest importance (Eqs. 2–3), then 80/20 train-test
+   split.
+3. **Distribute** – split training data equally among *N* FL clients (IID or
    non-IID).
-3. **Poison** – for each client, randomly select a fraction (default 10 %) of
+4. **Poison** – for each client, randomly select a fraction (default 10 %) of
    samples and:
    - Add Gaussian noise to features: `X_poisoned[i,j] = X[i,j] + ε`, `ε ~ N(0, σ)` (Eq. 4)
    - Flip labels to a random different class (Eq. 5)
 
 ## CLI usage
+
+**Generate synthetic data + poison (no dataset needed):**
+
+```bash
+poison-fl --generate \
+    --generate-n 100000 \
+    --n-clients 5 \
+    --poison-fraction 0.10 \
+    --output-dir poisoned_output/
+```
+
+**Use your own CSVs:**
 
 ```bash
 poison-fl data/*.csv \
@@ -44,22 +61,43 @@ Each client CSV includes an `is_poisoned` boolean column.
 
 ## Python API
 
+**Generate + poison (no files needed):**
+
 ```python
 from poison_fl import run_pipeline
 
 result = run_pipeline(
-    csv_paths=["data/part1.csv", "data/part2.csv"],
-    target_col="label",
+    generate=True,
+    generate_n=100_000,
     n_clients=5,
     poison_fraction=0.10,
-    noise_std=0.5,
-    top_k_features=15,
     output_dir="poisoned_output",
 )
 
 for client in result["clients"]:
     print(f"Client {client['client_id']}: "
           f"{client['poison_mask'].sum()} poisoned / {len(client['y'])} total")
+```
+
+**From existing CSVs:**
+
+```python
+result = run_pipeline(
+    csv_paths=["data/part1.csv", "data/part2.csv"],
+    target_col="label",
+    n_clients=5,
+    poison_fraction=0.10,
+    output_dir="poisoned_output",
+)
+```
+
+### Generate data only
+
+```python
+from poison_fl import generate_data
+
+df = generate_data(n_samples=50_000, classes=["Benign", "DDoS", "DoS", "Recon", "Spoofing"])
+print(df["label"].value_counts())
 ```
 
 ### Use only the poisoning function

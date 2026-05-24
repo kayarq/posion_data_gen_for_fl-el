@@ -9,6 +9,7 @@ from poison_fl.poisoning import poison_data
 from poison_fl.preprocessing import preprocess
 from poison_fl.distribution import distribute_iid, distribute_non_iid
 from poison_fl.pipeline import run_pipeline
+from poison_fl.datagen import generate_data
 
 __version__ = "0.1.0"
 
@@ -18,4 +19,5 @@ __all__ = [
     "distribute_iid",
     "distribute_non_iid",
     "run_pipeline",
+    "generate_data",
 ]
